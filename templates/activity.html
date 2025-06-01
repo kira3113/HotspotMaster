@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Log - MikroTik Hotspot Generator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-history me-2"></i>Activity Log
+                {% if not current_user.is_admin %}
+                    <small class="text-muted">(Your Activity)</small>
+                {% endif %}
+            </h2>
+            <a href="{{ url_for('export_activity') }}" class="btn btn-success">
+                <i class="fas fa-download me-1"></i>Export CSV
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Generation History
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if activities.items %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                {% if current_user.is_admin %}
+                                <th>User</th>
+                                {% endif %}
+                                <th>Date/Time</th>
+                                <th>Base Name</th>
+                                <th>Base IP</th>
+                                <th>Comment</th>
+                                <th>Range</th>
+                                <th>Password</th>
+                                <th>Character Types</th>
+                                <th>Users Generated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in activities.items %}
+                            <tr>
+                                {% if current_user.is_admin %}
+                                <td>
+                                    <i class="fas fa-user me-1"></i>{{ activity.user.username }}
+                                    {% if activity.user.is_admin %}
+                                        <span class="badge bg-warning text-dark ms-1">Admin</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                <td>{{ activity.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td><code>{{ activity.base_name }}</code></td>
+                                <td><code>{{ activity.base_ip }}</code></td>
+                                <td>{{ activity.comment }}</td>
+                                <td>{{ activity.start_number }} - {{ activity.end_number }}</td>
+                                <td>
+                                    <small>Length: {{ activity.password_length }}</small>
+                                </td>
+                                <td>
+                                    <small>
+                                        {% set char_types = activity.character_types.split(',') %}
+                                        {% for char_type in char_types %}
+                                            <span class="badge bg-secondary me-1">{{ char_type }}</span>
+                                        {% endfor %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ activity.users_generated }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if activities.pages > 1 %}
+                <nav aria-label="Activity pagination" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if activities.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('activity', page=activities.prev_num) }}">
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in activities.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != activities.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('activity', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if activities.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('activity', page=activities.next_num) }}">
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                
+                <div class="text-center">
+                    <small class="text-muted">
+                        Showing {{ activities.per_page * (activities.page - 1) + 1 }} to 
+                        {{ activities.per_page * (activities.page - 1) + activities.items|length }} 
+                        of {{ activities.total }} entries
+                    </small>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-history fa-4x mb-3"></i>
+                    <h4>No Activity Found</h4>
+                    <p class="lead">
+                        {% if current_user.is_admin %}
+                            No users have generated hotspot users yet.
+                        {% else %}
+                            You haven't generated any hotspot users yet.
+                        {% endif %}
+                    </p>
+                    <a href="{{ url_for('generator') }}" class="btn btn-primary">
+                        <i class="fas fa-cog me-2"></i>Go to Generator
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

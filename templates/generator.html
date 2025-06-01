@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Generator - MikroTik Hotspot Generator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>MikroTik Hotspot User Generator
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="generatorForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="base_name" class="form-label">Base Name for Users:</label>
+                            <input type="text" class="form-control" id="base_name" name="base_name" 
+                                   value="{{ request.form.base_name or 'user' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="base_ip" class="form-label">Base IP Address (e.g., 192.168.10):</label>
+                            <input type="text" class="form-control" id="base_ip" name="base_ip" 
+                                   value="{{ request.form.base_ip or '192.168.11' }}" 
+                                   pattern="^(\d{1,3}\.){2}\d{1,3}$" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="comment" class="form-label">Common Comment for Users:</label>
+                        <input type="text" class="form-control" id="comment" name="comment" 
+                               value="{{ request.form.comment or 'mark' }}" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_number" class="form-label">Start Number:</label>
+                            <input type="number" class="form-control" id="start_number" name="start_number" 
+                                   value="{{ request.form.start_number or '1' }}" min="1" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_number" class="form-label">End Number:</label>
+                            <input type="number" class="form-control" id="end_number" name="end_number" 
+                                   value="{{ request.form.end_number or '5' }}" min="1" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Number of Users: <span id="userCount">5</span></label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password_length" class="form-label">Password Length:</label>
+                        <input type="number" class="form-control" id="password_length" name="password_length" 
+                               value="{{ request.form.password_length or '5' }}" min="4" max="32" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Character Types:</label>
+                        <div class="mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="uppercase" name="uppercase" 
+                                       {% if 'uppercase' in request.form.getlist('uppercase') or not request.form %}checked{% endif %}>
+                                <label class="form-check-label" for="uppercase">Uppercase</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="lowercase" name="lowercase"
+                                       {% if 'lowercase' in request.form.getlist('lowercase') or not request.form %}checked{% endif %}>
+                                <label class="form-check-label" for="lowercase">Lowercase</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="numbers" name="numbers"
+                                       {% if 'numbers' in request.form.getlist('numbers') or not request.form %}checked{% endif %}>
+                                <label class="form-check-label" for="numbers">Numbers</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="special" name="special">
+                                <label class="form-check-label" for="special">Special Characters</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-magic me-2"></i>Generate Users
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        {% if commands %}
+        <div class="card shadow">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-terminal me-2"></i>Generated User Commands:
+                </h5>
+                <button type="button" class="btn btn-light btn-sm" id="copyButton" onclick="copyToClipboard()">
+                    <i class="fas fa-copy me-1"></i>Copy to Clipboard
+                </button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control font-monospace" id="commandsTextarea" rows="15" readonly>{{ commands_text }}</textarea>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>{{ commands|length }} commands generated
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card shadow">
+            <div class="card-body text-center text-muted">
+                <i class="fas fa-arrow-left fa-3x mb-3"></i>
+                <h5>Fill the form and click "Generate Users"</h5>
+                <p>Your MikroTik hotspot user commands will appear here.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
