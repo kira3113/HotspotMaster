@@ -267,3 +267,78 @@ def export_activity():
     response.headers['Content-Disposition'] = f'attachment; filename=activity_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     
     return response
+
+@app.route('/export_users_excel')
+@login_required
+def export_users_excel():
+    # Check if there are generated users in session
+    if 'generated_users' not in session or not session['generated_users']:
+        flash('No users to export. Please generate users first.', 'error')
+        return redirect(url_for('generator'))
+    
+    generated_users = session['generated_users']
+    metadata = session.get('export_metadata', {})
+    
+    # Create workbook and worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Generated Users"
+    
+    # Set up styling
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Add headers
+    headers = ['Name', 'Password', 'IP Address', 'Comment']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+    
+    # Add user data
+    for row, user in enumerate(generated_users, 2):
+        ws.cell(row=row, column=1, value=user['name'])
+        ws.cell(row=row, column=2, value=user['password'])
+        ws.cell(row=row, column=3, value=user['ip'])
+        ws.cell(row=row, column=4, value=user['comment'])
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Create filename with metadata
+    export_date = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = metadata.get('base_name', 'users')
+    comment = metadata.get('comment', 'export')
+    users_count = metadata.get('users_count', len(generated_users))
+    generated_by = metadata.get('generated_by', current_user.username)
+    
+    # Clean filename components (remove special characters)
+    safe_base_name = ''.join(c for c in base_name if c.isalnum() or c in ('-', '_'))
+    safe_comment = ''.join(c for c in comment if c.isalnum() or c in ('-', '_'))
+    safe_generated_by = ''.join(c for c in generated_by if c.isalnum() or c in ('-', '_'))
+    
+    filename = f"{safe_base_name}_{safe_comment}_{users_count}users_{safe_generated_by}_{export_date}.xlsx"
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Create response
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    
+    return response
