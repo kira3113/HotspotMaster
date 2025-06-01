@@ -1,19 +1,16 @@
 import os
 import logging
+from dotenv import load_dotenv
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
+from models import db, User
+from routes import routes_bp
+
+load_dotenv()
 
 logging.basicConfig(level=logging.DEBUG)
-
-class Base(DeclarativeBase):
-    pass
-
-db = SQLAlchemy(model_class=Base)
-login_manager = LoginManager()
 
 # create the app
 app = Flask(__name__)
@@ -29,25 +26,23 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 # initialize extensions
 db.init_app(app)
+login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
+# Register the blueprint
+app.register_blueprint(routes_bp)
+
 @login_manager.user_loader
 def load_user(user_id):
-    from models import User
     return User.query.get(int(user_id))
 
 with app.app_context():
-    # Import models to ensure tables are created
-    import models
-    import routes
-    
     db.create_all()
     
     # Create default admin user if none exists
-    from models import User
     from werkzeug.security import generate_password_hash
     
     admin_user = User.query.filter_by(username='admin').first()
@@ -61,3 +56,10 @@ with app.app_context():
         db.session.add(admin_user)
         db.session.commit()
         print("Default admin user created: admin/admin123")
+
+@app.route('/test')
+def test_route():
+    return 'Test route is working!'
+
+if __name__ == '__main__':
+    app.run(debug=True)

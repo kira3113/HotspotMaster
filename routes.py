@@ -2,23 +2,24 @@ import string
 import random
 import csv
 import io
-from flask import render_template, request, redirect, url_for, flash, session, make_response
+from flask import render_template, request, redirect, url_for, flash, session, make_response, Blueprint
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from app import app, db
-from models import User, ActivityLog
+from models import User, ActivityLog, db
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-@app.route('/')
+routes_bp = Blueprint('routes_bp', __name__)
+
+@routes_bp.route('/')
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('generator'))
-    return redirect(url_for('login'))
+        return redirect(url_for('routes_bp.generator'))
+    return redirect(url_for('routes_bp.login'))
 
-@app.route('/login', methods=['GET', 'POST'])
+@routes_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
@@ -30,7 +31,7 @@ def login():
             login_user(user)
             flash('Logged in successfully!', 'success')
             next_page = request.args.get('next')
-            return redirect(next_page) if next_page else redirect(url_for('generator'))
+            return redirect(next_page) if next_page else redirect(url_for('routes_bp.generator'))
         else:
             flash('Invalid username or password.', 'error')
     
@@ -38,14 +39,14 @@ def login():
 
 
 
-@app.route('/logout')
+@routes_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('login'))
+    return redirect(url_for('routes_bp.login'))
 
-@app.route('/generator', methods=['GET', 'POST'])
+@routes_bp.route('/generator', methods=['GET', 'POST'])
 @login_required
 def generator():
     if request.method == 'POST':
@@ -163,24 +164,24 @@ def generator():
     
     return render_template('generator.html')
 
-@app.route('/admin')
+@routes_bp.route('/admin')
 @login_required
 def admin():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('generator'))
+        return redirect(url_for('routes_bp.generator'))
     
     users = User.query.all()
     recent_activities = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
     
     return render_template('admin.html', users=users, recent_activities=recent_activities)
 
-@app.route('/admin/create_user', methods=['POST'])
+@routes_bp.route('/admin/create_user', methods=['POST'])
 @login_required
 def create_user():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('generator'))
+        return redirect(url_for('routes_bp.generator'))
     
     username = request.form['username']
     email = request.form['email']
@@ -191,15 +192,15 @@ def create_user():
     # Validation
     if password != confirm_password:
         flash('Passwords do not match.', 'error')
-        return redirect(url_for('admin'))
+        return redirect(url_for('routes_bp.admin'))
     
     if User.query.filter_by(username=username).first():
         flash('Username already exists.', 'error')
-        return redirect(url_for('admin'))
+        return redirect(url_for('routes_bp.admin'))
     
     if User.query.filter_by(email=email).first():
         flash('Email already registered.', 'error')
-        return redirect(url_for('admin'))
+        return redirect(url_for('routes_bp.admin'))
     
     # Create new user
     user = User(
@@ -213,30 +214,30 @@ def create_user():
     db.session.commit()
     
     flash(f'User "{username}" created successfully!', 'success')
-    return redirect(url_for('admin'))
+    return redirect(url_for('routes_bp.admin'))
 
-@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+@routes_bp.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required
 def delete_user(user_id):
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('generator'))
+        return redirect(url_for('routes_bp.generator'))
     
     user = User.query.get_or_404(user_id)
     
     # Prevent deleting yourself
     if user.id == current_user.id:
         flash('You cannot delete your own account.', 'error')
-        return redirect(url_for('admin'))
+        return redirect(url_for('routes_bp.admin'))
     
     username = user.username
     db.session.delete(user)
     db.session.commit()
     
     flash(f'User "{username}" deleted successfully!', 'success')
-    return redirect(url_for('admin'))
+    return redirect(url_for('routes_bp.admin'))
 
-@app.route('/activity')
+@routes_bp.route('/activity')
 @login_required
 def activity():
     page = request.args.get('page', 1, type=int)
@@ -248,37 +249,47 @@ def activity():
             page=page, per_page=per_page, error_out=False
         )
     else:
-        # Regular users can only see their own activities
-        activities = ActivityLog.query.filter_by(user_id=current_user.id).order_by(
-            ActivityLog.timestamp.desc()
-        ).paginate(page=page, per_page=per_page, error_out=False)
-    
+        # Regular users only see their own activities
+        activities = ActivityLog.query.filter_by(user_id=current_user.id).order_by(ActivityLog.timestamp.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
     return render_template('activity.html', activities=activities)
 
-@app.route('/export_activity')
+@routes_bp.route('/export_activity')
 @login_required
 def export_activity():
-    if current_user.is_admin:
-        activities = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
-    else:
-        activities = ActivityLog.query.filter_by(user_id=current_user.id).order_by(
-            ActivityLog.timestamp.desc()
-        ).all()
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('routes_bp.generator'))
     
-    # Create CSV content
-    output = io.StringIO()
-    writer = csv.writer(output)
+    activities = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
     
-    # Write header
-    writer.writerow(['Username', 'Date/Time', 'Base Name', 'Base IP', 'Comment', 
-                     'Start Number', 'End Number', 'Password Length', 'Character Types', 
-                     'Users Generated'])
+    # Create a new workbook and select the active worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Activity Log"
     
-    # Write data
+    # Add header row with styling
+    header = ['Timestamp', 'User', 'Base Name', 'Base IP', 'Comment', 'Start #', 'End #', 'Password Length', 'Char Types', 'Users Generated']
+    ws.append(header)
+    
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid") # Light grey fill
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    for col in range(1, len(header) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        ws.column_dimensions[get_column_letter(col)].width = 15 # Set a default width
+    
+    # Add data rows
     for activity in activities:
-        writer.writerow([
+        ws.append([
+            activity.timestamp,
             activity.user.username,
-            activity.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             activity.base_name,
             activity.base_ip,
             activity.comment,
@@ -289,84 +300,99 @@ def export_activity():
             activity.users_generated
         ])
     
-    # Create response
-    response = make_response(output.getvalue())
-    response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename=activity_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    
-    return response
-
-@app.route('/export_users_excel')
-@login_required
-def export_users_excel():
-    # Check if there are generated users in session
-    if 'generated_users' not in session or not session['generated_users']:
-        flash('No users to export. Please generate users first.', 'error')
-        return redirect(url_for('generator'))
-    
-    generated_users = session['generated_users']
-    metadata = session.get('export_metadata', {})
-    
-    # Create workbook and worksheet
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Generated Users"
-    
-    # Set up styling
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    center_alignment = Alignment(horizontal="center", vertical="center")
-    
-    # Add headers
-    headers = ['Name', 'Password']
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = center_alignment
-    
-    # Add user data
-    for row, user in enumerate(generated_users, 2):
-        ws.cell(row=row, column=1, value=user['name'])
-        ws.cell(row=row, column=2, value=user['password'])
-    
-    # Auto-adjust column widths
-    for column in ws.columns:
+    # Auto-size columns
+    for col in ws.columns:
         max_length = 0
-        column_letter = get_column_letter(column[0].column)
-        for cell in column:
+        column = col[0].column # Get the column index
+        for cell in col:
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
             except:
                 pass
-        adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
-        ws.column_dimensions[column_letter].width = adjusted_width
+        adjusted_width = (max_length + 2) * 1.2 # Add some padding
+        ws.column_dimensions[get_column_letter(column)].width = adjusted_width
     
-    # Create filename with metadata
-    export_datetime = datetime.now()
-    export_date = export_datetime.strftime("%d-%m-%Y")
-    export_time = export_datetime.strftime("%H-%M-%S")
-    base_name = metadata.get('base_name', 'users')
-    comment = metadata.get('comment', 'export')
-    users_count = metadata.get('users_count', len(generated_users))
-    generated_by = metadata.get('generated_by', current_user.username)
+    # Create a response for the Excel file
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
     
-    # Clean filename components (remove special characters)
-    safe_base_name = ''.join(c for c in base_name if c.isalnum() or c in ('-', '_'))
-    safe_comment = ''.join(c for c in comment if c.isalnum() or c in ('-', '_'))
-    safe_generated_by = ''.join(c for c in generated_by if c.isalnum() or c in ('-', '_'))
-    
-    filename = f"{safe_base_name}_{safe_comment}_{users_count}users_{safe_generated_by}_{export_date}_{export_time}.xlsx"
-    
-    # Save to BytesIO
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    
-    # Create response
-    response = make_response(output.getvalue())
+    response = make_response(excel_file.read())
     response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    response.headers['Content-Disposition'] = f'attachment; filename=activity_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    
+    return response
+
+@routes_bp.route('/export_users_excel')
+@login_required
+def export_users_excel():
+    # Check if there are generated users in session
+    generated_users = session.get('generated_users')
+    export_metadata = session.get('export_metadata')
+    
+    if not generated_users:
+        flash('No users generated in the current session to export.', 'warning')
+        return redirect(url_for('routes_bp.generator'))
+        
+    # Create a new workbook and select the active worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Generated Users"
+    
+    # Add metadata (optional)
+    if export_metadata:
+        ws.append([f'Generated by: {export_metadata.get('generated_by', 'N/A')}'])
+        ws.append([f'Generation Date: {export_metadata.get('export_date', 'N/A')}'])
+        ws.append([f'Base Name: {export_metadata.get('base_name', 'N/A')}'])
+        ws.append([f'Comment: {export_metadata.get('comment', 'N/A')}'])
+        ws.append([]) # Add an empty row for spacing
+
+    
+    # Add header row with styling
+    header = ['Name', 'Password', 'IP Address', 'Comment']
+    ws.append(header)
+    
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid") # Light grey fill
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    for col in range(1, len(header) + 1):
+        cell = ws.cell(row=ws.max_row, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        ws.column_dimensions[get_column_letter(col)].width = 15 # Set a default width
+        
+    # Add data rows
+    for user_data in generated_users:
+        ws.append([
+            user_data['name'],
+            user_data['password'],
+            user_data['ip'],
+            user_data['comment']
+        ])
+        
+    # Auto-size columns
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column # Get the column index
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2) * 1.2 # Add some padding
+        ws.column_dimensions[get_column_letter(column)].width = adjusted_width
+    
+    # Create a response for the Excel file
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    
+    response = make_response(excel_file.read())
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename=generated_users_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
     
     return response
