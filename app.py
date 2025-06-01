@@ -1,6 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 from flask import Flask
 from flask_login import LoginManager
@@ -18,10 +19,24 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-prod
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # configure the database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///mikrotik_generator.db")
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    # Handle Supabase connection string
+    if "supabase" in database_url:
+        # Parse the URL to ensure it's properly formatted
+        parsed = urlparse(database_url)
+        # Ensure the connection string uses the correct format
+        database_url = f"postgresql://{parsed.netloc.split('@')[0]}@{parsed.netloc.split('@')[1]}{parsed.path}"
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///mikrotik_generator.db"
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 10,
+    "connect_args": {
+        "connect_timeout": 10
+    }
 }
 
 # initialize extensions
