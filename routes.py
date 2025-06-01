@@ -36,42 +36,7 @@ def login():
     
     return render_template('login.html')
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
-        
-        # Validation
-        if password != confirm_password:
-            flash('Passwords do not match.', 'error')
-            return render_template('register.html')
-        
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists.', 'error')
-            return render_template('register.html')
-        
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered.', 'error')
-            return render_template('register.html')
-        
-        # Create new user
-        user = User(
-            username=username,
-            email=email,
-            password_hash=generate_password_hash(password),
-            is_admin=False
-        )
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('Registration successful! Please log in.', 'success')
-        return redirect(url_for('login'))
-    
-    return render_template('register.html')
+
 
 @app.route('/logout')
 @login_required
@@ -209,6 +174,67 @@ def admin():
     recent_activities = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
     
     return render_template('admin.html', users=users, recent_activities=recent_activities)
+
+@app.route('/admin/create_user', methods=['POST'])
+@login_required
+def create_user():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('generator'))
+    
+    username = request.form['username']
+    email = request.form['email']
+    password = request.form['password']
+    confirm_password = request.form['confirm_password']
+    is_admin = 'is_admin' in request.form
+    
+    # Validation
+    if password != confirm_password:
+        flash('Passwords do not match.', 'error')
+        return redirect(url_for('admin'))
+    
+    if User.query.filter_by(username=username).first():
+        flash('Username already exists.', 'error')
+        return redirect(url_for('admin'))
+    
+    if User.query.filter_by(email=email).first():
+        flash('Email already registered.', 'error')
+        return redirect(url_for('admin'))
+    
+    # Create new user
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+        is_admin=is_admin
+    )
+    
+    db.session.add(user)
+    db.session.commit()
+    
+    flash(f'User "{username}" created successfully!', 'success')
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('generator'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent deleting yourself
+    if user.id == current_user.id:
+        flash('You cannot delete your own account.', 'error')
+        return redirect(url_for('admin'))
+    
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'User "{username}" deleted successfully!', 'success')
+    return redirect(url_for('admin'))
 
 @app.route('/activity')
 @login_required
