@@ -130,7 +130,11 @@ def generator():
             
             # Parse IP address to increment last octet
             ip_parts = base_ip.split('.')
-            if len(ip_parts) == 4:
+            if len(ip_parts) == 3:
+                # Base IP is like "192.168.10", add the incrementing number
+                user_ip = f"{base_ip}.{i}"
+            elif len(ip_parts) == 4:
+                # Base IP is like "192.168.10.100", increment the last octet
                 ip_parts[3] = str(int(ip_parts[3]) + i - start_number)
                 user_ip = '.'.join(ip_parts)
             else:
