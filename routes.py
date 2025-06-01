@@ -136,8 +136,8 @@ def generator():
             else:
                 user_ip = base_ip
             
-            # Generate command
-            command = f'/ip hotspot user add comment={comment} address={user_ip} name={base_name}{i} password={password}'
+            # Generate command in the new format
+            command = f' add comment={comment} address={user_ip} name={base_name}{i} password={password}'
             commands.append(command)
         
         # Log activity
@@ -156,7 +156,10 @@ def generator():
         db.session.add(activity)
         db.session.commit()
         
-        return render_template('generator.html', commands=commands, commands_text='\n'.join(commands))
+        # Format the commands with the header
+        commands_text = '/ip hotspot user\n' + '\n'.join(commands)
+        
+        return render_template('generator.html', commands=commands, commands_text=commands_text)
     
     return render_template('generator.html')
 

@@ -53,7 +53,7 @@
                     <div class="mb-3">
                         <label for="password_length" class="form-label">Password Length:</label>
                         <input type="number" class="form-control" id="password_length" name="password_length" 
-                               value="{{ request.form.password_length or '5' }}" min="4" max="32" required>
+                               value="{{ request.form.password_length or '5' }}" min="1" max="32" required>
                     </div>
                     
                     <div class="mb-3">
