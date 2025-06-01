@@ -290,7 +290,7 @@ def export_users_excel():
     center_alignment = Alignment(horizontal="center", vertical="center")
     
     # Add headers
-    headers = ['Name', 'Password', 'IP Address', 'Comment']
+    headers = ['Name', 'Password']
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -301,8 +301,6 @@ def export_users_excel():
     for row, user in enumerate(generated_users, 2):
         ws.cell(row=row, column=1, value=user['name'])
         ws.cell(row=row, column=2, value=user['password'])
-        ws.cell(row=row, column=3, value=user['ip'])
-        ws.cell(row=row, column=4, value=user['comment'])
     
     # Auto-adjust column widths
     for column in ws.columns:
@@ -318,7 +316,9 @@ def export_users_excel():
         ws.column_dimensions[column_letter].width = adjusted_width
     
     # Create filename with metadata
-    export_date = datetime.now().strftime("%Y%m%d_%H%M%S")
+    export_datetime = datetime.now()
+    export_date = export_datetime.strftime("%d-%m-%Y")
+    export_time = export_datetime.strftime("%H-%M-%S")
     base_name = metadata.get('base_name', 'users')
     comment = metadata.get('comment', 'export')
     users_count = metadata.get('users_count', len(generated_users))
@@ -329,7 +329,7 @@ def export_users_excel():
     safe_comment = ''.join(c for c in comment if c.isalnum() or c in ('-', '_'))
     safe_generated_by = ''.join(c for c in generated_by if c.isalnum() or c in ('-', '_'))
     
-    filename = f"{safe_base_name}_{safe_comment}_{users_count}users_{safe_generated_by}_{export_date}.xlsx"
+    filename = f"{safe_base_name}_{safe_comment}_{users_count}users_{safe_generated_by}_{export_date}_{export_time}.xlsx"
     
     # Save to BytesIO
     output = io.BytesIO()
