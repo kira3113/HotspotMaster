@@ -109,6 +109,11 @@ def generator():
             flash('Start number cannot be greater than end number.', 'error')
             return render_template('generator.html')
         
+        # Validate IP range (1-254 for last octet)
+        if start_number < 1 or end_number > 254:
+            flash('IP range must be between 1 and 254.', 'error')
+            return render_template('generator.html')
+        
         # Generate character set
         charset = ''
         if 'uppercase' in char_types:

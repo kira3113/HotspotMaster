@@ -37,12 +37,14 @@
                         <div class="col-md-6 mb-3">
                             <label for="start_number" class="form-label">Start Number:</label>
                             <input type="number" class="form-control" id="start_number" name="start_number" 
-                                   value="{{ request.form.start_number or '1' }}" min="1" required>
+                                   value="{{ request.form.start_number or '1' }}" min="1" max="254" required>
+                            <small class="form-text text-muted">Valid IP range: 1-254</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="end_number" class="form-label">End Number:</label>
                             <input type="number" class="form-control" id="end_number" name="end_number" 
-                                   value="{{ request.form.end_number or '5' }}" min="1" required>
+                                   value="{{ request.form.end_number or '5' }}" min="1" max="254" required>
+                            <small class="form-text text-muted">Valid IP range: 1-254</small>
                         </div>
                     </div>
                     
