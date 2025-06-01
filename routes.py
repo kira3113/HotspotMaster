@@ -8,6 +8,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app import app, db
 from models import User, ActivityLog
 from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
 
 @app.route('/')
 def index():
@@ -127,6 +130,7 @@ def generator():
         
         # Generate commands
         commands = []
+        generated_users = []  # Store user data for Excel export
         users_count = end_number - start_number + 1
         
         for i in range(start_number, end_number + 1):
@@ -145,8 +149,18 @@ def generator():
             else:
                 user_ip = base_ip
             
+            username = f"{base_name}{i}"
+            
+            # Store user data for Excel export
+            generated_users.append({
+                'name': username,
+                'password': password,
+                'ip': user_ip,
+                'comment': comment
+            })
+            
             # Generate command in the new format
-            command = f' add comment={comment} address={user_ip} name={base_name}{i} password={password}'
+            command = f' add comment={comment} address={user_ip} name={username} password={password}'
             commands.append(command)
         
         # Log activity
@@ -164,6 +178,16 @@ def generator():
         
         db.session.add(activity)
         db.session.commit()
+        
+        # Store generated users in session for Excel export
+        session['generated_users'] = generated_users
+        session['export_metadata'] = {
+            'base_name': base_name,
+            'comment': comment,
+            'users_count': users_count,
+            'generated_by': current_user.username,
+            'export_date': datetime.now().isoformat()
+        }
         
         # Format the commands with the header
         commands_text = '/ip hotspot user\n' + '\n'.join(commands)
