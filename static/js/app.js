@@ -46,7 +46,11 @@ function initializeFormValidation() {
             e.preventDefault();
             showAlert('Please fix the validation errors before submitting.', 'error');
         } else {
-            showLoadingState(e.target.querySelector('button[type="submit"]'));
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            showLoadingState(submitButton);
+            
+            // Show progress indicator
+            showProgressIndicator();
         }
     });
 }
@@ -351,8 +355,41 @@ function showAlert(message, type) {
 }
 
 function showLoadingState(button) {
-    button.classList.add('btn-loading');
+    if (!button) return;
+    
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
     button.disabled = true;
+    button.classList.add('btn-loading');
+    
+    // Store original text for restoration
+    button.dataset.originalText = originalText;
+}
+
+function showProgressIndicator() {
+    // Remove existing progress if any
+    const existingProgress = document.querySelector('.progress-container');
+    if (existingProgress) {
+        existingProgress.remove();
+    }
+    
+    // Create progress indicator
+    const progressHtml = `
+        <div class="progress-container mt-3">
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                     role="progressbar" style="width: 100%"></div>
+            </div>
+            <small class="text-muted mt-2 d-block text-center">
+                <i class="fas fa-cog fa-spin me-1"></i>Generating users and commands...
+            </small>
+        </div>
+    `;
+    
+    const form = document.getElementById('generatorForm');
+    if (form) {
+        form.insertAdjacentHTML('afterend', progressHtml);
+    }
 }
 
 // Auto-dismiss alerts after 5 seconds

@@ -128,24 +128,26 @@ def generator():
         if 'special' in char_types:
             charset += '!@#$%^&*'
         
-        # Generate commands
+        # Generate commands (optimized for speed)
         commands = []
         generated_users = []  # Store user data for Excel export
         users_count = end_number - start_number + 1
         
+        # Pre-calculate IP base parts for efficiency
+        ip_parts = base_ip.split('.')
+        is_partial_ip = len(ip_parts) == 3
+        base_ip_int = int(ip_parts[3]) if len(ip_parts) == 4 else 0
+        
+        # Generate all users in one loop (optimized)
         for i in range(start_number, end_number + 1):
-            # Generate random password
-            password = ''.join(random.choice(charset) for _ in range(password_length))
+            # Generate random password (optimized)
+            password = ''.join(random.choices(charset, k=password_length))
             
-            # Parse IP address to increment last octet
-            ip_parts = base_ip.split('.')
-            if len(ip_parts) == 3:
-                # Base IP is like "192.168.10", add the incrementing number
+            # Calculate IP address efficiently
+            if is_partial_ip:
                 user_ip = f"{base_ip}.{i}"
             elif len(ip_parts) == 4:
-                # Base IP is like "192.168.10.100", increment the last octet
-                ip_parts[3] = str(int(ip_parts[3]) + i - start_number)
-                user_ip = '.'.join(ip_parts)
+                user_ip = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.{base_ip_int + i - start_number}"
             else:
                 user_ip = base_ip
             
